@@ -125,24 +125,31 @@ const setupPicker = (picker, initialValue, callback) => {
     // Touch feedback
     let touchStartY = 0;
     let lastTouchY = 0;
+    let lastTouchTime = 0;
     let velocity = 0;
     
     picker.addEventListener('touchstart', (e) => {
         touchStartY = e.touches[0].clientY;
         lastTouchY = touchStartY;
+        lastTouchTime = Date.now();
         velocity = 0;
     }, { passive: true });
     
     picker.addEventListener('touchmove', (e) => {
         const currentY = e.touches[0].clientY;
-        velocity = currentY - lastTouchY;
+        const currentTime = Date.now();
+        const deltaY = currentY - lastTouchY;
+        const deltaTime = currentTime - lastTouchTime;
+        
+        velocity = deltaY / (deltaTime || 1);
         lastTouchY = currentY;
+        lastTouchTime = currentTime;
     }, { passive: true });
     
     picker.addEventListener('touchend', () => {
         // Momentum scrolling
-        if (Math.abs(velocity) > 2) {
-            const momentum = velocity * 8;
+        if (Math.abs(velocity) > 0.5) {
+            const momentum = velocity * 300;
             picker.scrollBy({
                 top: -momentum,
                 behavior: 'smooth'
@@ -150,45 +157,55 @@ const setupPicker = (picker, initialValue, callback) => {
         }
     }, { passive: true });
     
-    // EGÉR HÚZÁS TÁMOGATÁS
+    // EGÉR HÚZÁS TÁMOGATÁS - FLUID SCROLLING
     let isDragging = false;
-    let mouseStartY = 0;
-    let mouseLastY = 0;
-    let mouseVelocity = 0;
-    let startScrollTop = 0;
+    let dragStartY = 0;
+    let dragLastY = 0;
+    let dragLastTime = 0;
+    let dragVelocity = 0;
+    let dragStartScrollTop = 0;
     
     picker.addEventListener('mousedown', (e) => {
         isDragging = true;
-        mouseStartY = e.clientY;
-        mouseLastY = e.clientY;
-        mouseVelocity = 0;
-        startScrollTop = picker.scrollTop;
+        dragStartY = e.clientY;
+        dragLastY = e.clientY;
+        dragLastTime = Date.now();
+        dragVelocity = 0;
+        dragStartScrollTop = picker.scrollTop;
         picker.style.cursor = 'grabbing';
-        picker.style.scrollBehavior = 'auto';
+        picker.style.userSelect = 'none';
         e.preventDefault();
     });
     
-    document.addEventListener('mousemove', (e) => {
+    const handleMouseMove = (e) => {
         if (!isDragging) return;
         
-        const deltaY = mouseLastY - e.clientY;
-        mouseVelocity = deltaY;
-        mouseLastY = e.clientY;
+        const currentY = e.clientY;
+        const currentTime = Date.now();
+        const deltaY = dragLastY - currentY;
+        const deltaTime = currentTime - dragLastTime;
         
-        picker.scrollTop += deltaY;
+        // Folyamatos scrollozás húzás közben
+        picker.scrollTop = dragStartScrollTop + (dragStartY - currentY);
+        
+        // Velocity számítás momentum-hoz
+        dragVelocity = deltaY / (deltaTime || 1);
+        dragLastY = currentY;
+        dragLastTime = currentTime;
+        
         e.preventDefault();
-    });
+    };
     
-    document.addEventListener('mouseup', (e) => {
+    const handleMouseUp = (e) => {
         if (!isDragging) return;
         
         isDragging = false;
         picker.style.cursor = 'grab';
-        picker.style.scrollBehavior = 'smooth';
+        picker.style.userSelect = 'none';
         
-        // Momentum scrolling egérrel is
-        if (Math.abs(mouseVelocity) > 2) {
-            const momentum = mouseVelocity * 8;
+        // Momentum scrolling - pörgetés
+        if (Math.abs(dragVelocity) > 0.5) {
+            const momentum = dragVelocity * 300;
             picker.scrollBy({
                 top: momentum,
                 behavior: 'smooth'
@@ -196,7 +213,10 @@ const setupPicker = (picker, initialValue, callback) => {
         } else {
             snapToNearest();
         }
-    });
+    };
+    
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
     
     // SCROLL WHEEL TÁMOGATÁS - egyet ugrik
     picker.addEventListener('wheel', (e) => {
@@ -223,6 +243,7 @@ const setupPicker = (picker, initialValue, callback) => {
     
     // Kezdeti állapot
     picker.style.cursor = 'grab';
+    picker.style.userSelect = 'none';
     updatePickerItems();
     items[initialValue]?.classList.add('active');
 };
