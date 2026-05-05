@@ -13,31 +13,81 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="container">
-        <div class="timer-display" id="timerDisplay">00:00</div>
-        
-        <div class="time-inputs" id="timeInputs">
-            <div class="input-group">
-                <input type="number" id="minutes" min="0" max="99" value="5" placeholder="0">
-                <label>perc</label>
+    <div class="app">
+        <!-- Header -->
+        <div class="header">
+            <div class="header-left">
+                <button class="header-btn" id="cancelBtn">Mégse</button>
             </div>
-            <div class="input-group">
-                <input type="number" id="seconds" min="0" max="59" value="0" placeholder="0">
-                <label>mp</label>
+            <div class="header-title">Időzítő</div>
+            <div class="header-right"></div>
+        </div>
+
+        <!-- Timer Display (amikor fut) -->
+        <div class="timer-running" id="timerRunning" style="display: none;">
+            <div class="timer-circle">
+                <svg class="progress-ring" width="280" height="280">
+                    <circle class="progress-ring-bg" cx="140" cy="140" r="130" />
+                    <circle class="progress-ring-circle" cx="140" cy="140" r="130" id="progressCircle" />
+                </svg>
+                <div class="timer-time" id="timerDisplay">00:00</div>
             </div>
         </div>
 
+        <!-- Picker (amikor állítjuk) -->
+        <div class="picker-container" id="pickerContainer">
+            <div class="picker-wrapper">
+                <div class="picker-highlight"></div>
+                
+                <div class="picker-column">
+                    <div class="picker-scroll" id="hoursPicker">
+                        <!-- Órák generálva JS-ből -->
+                    </div>
+                    <div class="picker-label">óra</div>
+                </div>
+                
+                <div class="picker-column">
+                    <div class="picker-scroll" id="minutesPicker">
+                        <!-- Percek generálva JS-ből -->
+                    </div>
+                    <div class="picker-label">perc</div>
+                </div>
+                
+                <div class="picker-column">
+                    <div class="picker-scroll" id="secondsPicker">
+                        <!-- Másodpercek generálva JS-ből -->
+                    </div>
+                    <div class="picker-label">mp</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Gyors gombok -->
+        <div class="quick-buttons" id="quickButtons">
+            <button class="quick-btn" data-time="60">1 MIN</button>
+            <button class="quick-btn" data-time="180">3 MIN</button>
+            <button class="quick-btn" data-time="300">5 MIN</button>
+            <button class="quick-btn" data-time="600">10 MIN</button>
+        </div>
+
+        <!-- Control gombok -->
         <div class="controls">
-            <button class="btn btn-start" id="startBtn">Indítás</button>
-            <button class="btn btn-pause" id="pauseBtn" style="display: none;">Szünet</button>
-            <button class="btn btn-reset" id="resetBtn" style="display: none;">Újra</button>
+            <button class="control-btn start-btn" id="startBtn">
+                <div class="btn-icon">▶</div>
+                <div class="btn-label">Indítás</div>
+            </button>
         </div>
 
-        <div class="presets">
-            <button class="preset-btn" data-time="60">1 perc</button>
-            <button class="preset-btn" data-time="300">5 perc</button>
-            <button class="preset-btn" data-time="600">10 perc</button>
-            <button class="preset-btn" data-time="900">15 perc</button>
+        <!-- Running controls -->
+        <div class="running-controls" id="runningControls" style="display: none;">
+            <button class="control-btn pause-btn" id="pauseBtn">
+                <div class="btn-icon">⏸</div>
+                <div class="btn-label">Szünet</div>
+            </button>
+            <button class="control-btn cancel-btn" id="cancelBtnRunning">
+                <div class="btn-icon">✕</div>
+                <div class="btn-label">Mégse</div>
+            </button>
         </div>
     </div>
 

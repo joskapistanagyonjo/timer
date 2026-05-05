@@ -19,8 +19,8 @@ const secondsPicker = document.getElementById('secondsPicker');
 
 const startBtn = document.getElementById('startBtn');
 const pauseBtn = document.getElementById('pauseBtn');
-const stopBtn = document.getElementById('stopBtn');
 const cancelBtn = document.getElementById('cancelBtn');
+const cancelBtnRunning = document.getElementById('cancelBtnRunning');
 
 const progressCircle = document.getElementById('progressCircle');
 
@@ -37,13 +37,13 @@ let selectedMinutes = 5;
 let selectedSeconds = 0;
 
 // Progress ring setup
-const radius = 130;
+const radius = 145;
 const circumference = 2 * Math.PI * radius;
 progressCircle.style.strokeDasharray = `${circumference} ${circumference}`;
 progressCircle.style.strokeDashoffset = circumference;
 
 // Picker generálás
-const generatePickerItems = (max, picker, type) => {
+const generatePickerItems = (max, picker) => {
     for (let i = 0; i <= max; i++) {
         const item = document.createElement('div');
         item.className = 'picker-item';
@@ -53,47 +53,105 @@ const generatePickerItems = (max, picker, type) => {
     }
 };
 
-generatePickerItems(23, hoursPicker, 'hours');
-generatePickerItems(59, minutesPicker, 'minutes');
-generatePickerItems(59, secondsPicker, 'seconds');
+generatePickerItems(23, hoursPicker);
+generatePickerItems(59, minutesPicker);
+generatePickerItems(59, secondsPicker);
 
-// Picker scroll kezelés
+// Ultra smooth picker scroll kezelés
 const setupPicker = (picker, initialValue, callback) => {
-    const items = picker.querySelectorAll('.picker-item');
-    const itemHeight = 44;
+    const items = Array.from(picker.querySelectorAll('.picker-item'));
+    const itemHeight = 46;
     
     // Kezdő pozíció beállítása
     picker.scrollTop = initialValue * itemHeight;
     
-    let isScrolling;
+    let scrollTimeout;
+    let animationFrame;
     
-    picker.addEventListener('scroll', () => {
-        clearTimeout(isScrolling);
-        
-        // Aktuális elem kiemelése
+    const updatePickerItems = () => {
         const scrollTop = picker.scrollTop;
-        const centerIndex = Math.round(scrollTop / itemHeight);
+        const centerIndex = scrollTop / itemHeight;
         
         items.forEach((item, index) => {
-            if (index === centerIndex) {
+            const distance = Math.abs(index - centerIndex);
+            
+            if (distance < 0.1) {
+                // Aktív elem
                 item.classList.add('active');
-            } else {
+                item.classList.remove('near');
+            } else if (distance < 1.5) {
+                // Közeli elemek
                 item.classList.remove('active');
+                item.classList.add('near');
+            } else {
+                // Távoli elemek
+                item.classList.remove('active', 'near');
             }
+            
+            // Smooth opacity és scale
+            const opacity = Math.max(0.2, 1 - (distance * 0.4));
+            const scale = Math.max(0.85, 1 - (distance * 0.08));
+            
+            item.style.opacity = opacity;
+            item.style.transform = `scale(${scale})`;
+        });
+    };
+    
+    const snapToNearest = () => {
+        const scrollTop = picker.scrollTop;
+        const centerIndex = Math.round(scrollTop / itemHeight);
+        const targetScroll = centerIndex * itemHeight;
+        
+        picker.scrollTo({
+            top: targetScroll,
+            behavior: 'smooth'
         });
         
-        // Snap to position
-        isScrolling = setTimeout(() => {
-            const targetScroll = centerIndex * itemHeight;
-            picker.scrollTo({
-                top: targetScroll,
+        callback(centerIndex);
+    };
+    
+    picker.addEventListener('scroll', () => {
+        // Folyamatos frissítés scrollozás közben
+        if (animationFrame) {
+            cancelAnimationFrame(animationFrame);
+        }
+        animationFrame = requestAnimationFrame(updatePickerItems);
+        
+        // Snap amikor megáll
+        clearTimeout(scrollTimeout);
+        scrollTimeout = setTimeout(snapToNearest, 150);
+    }, { passive: true });
+    
+    // Touch feedback
+    let touchStartY = 0;
+    let lastTouchY = 0;
+    let velocity = 0;
+    
+    picker.addEventListener('touchstart', (e) => {
+        touchStartY = e.touches[0].clientY;
+        lastTouchY = touchStartY;
+        velocity = 0;
+    }, { passive: true });
+    
+    picker.addEventListener('touchmove', (e) => {
+        const currentY = e.touches[0].clientY;
+        velocity = currentY - lastTouchY;
+        lastTouchY = currentY;
+    }, { passive: true });
+    
+    picker.addEventListener('touchend', () => {
+        // Momentum scrolling
+        if (Math.abs(velocity) > 2) {
+            const momentum = velocity * 8;
+            picker.scrollBy({
+                top: -momentum,
                 behavior: 'smooth'
             });
-            callback(centerIndex);
-        }, 100);
-    });
+        }
+    }, { passive: true });
     
-    // Kezdeti aktív elem
+    // Kezdeti állapot
+    updatePickerItems();
     items[initialValue]?.classList.add('active');
 };
 
@@ -121,9 +179,9 @@ document.querySelectorAll('.quick-btn').forEach(btn => {
         selectedMinutes = minutes;
         selectedSeconds = secs;
         
-        hoursPicker.scrollTo({ top: hours * 44, behavior: 'smooth' });
-        minutesPicker.scrollTo({ top: minutes * 44, behavior: 'smooth' });
-        secondsPicker.scrollTo({ top: secs * 44, behavior: 'smooth' });
+        hoursPicker.scrollTo({ top: hours * 46, behavior: 'smooth' });
+        minutesPicker.scrollTo({ top: minutes * 46, behavior: 'smooth' });
+        secondsPicker.scrollTo({ top: secs * 46, behavior: 'smooth' });
     });
 });
 
@@ -155,24 +213,33 @@ const updateDisplay = () => {
 // Hang lejátszás
 const playSound = () => {
     if ('vibrate' in navigator) {
-        navigator.vibrate([200, 100, 200, 100, 200]);
+        navigator.vibrate([200, 100, 200, 100, 200, 100, 200]);
     }
     
-    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-    const oscillator = audioContext.createOscillator();
-    const gainNode = audioContext.createGain();
-    
-    oscillator.connect(gainNode);
-    gainNode.connect(audioContext.destination);
-    
-    oscillator.frequency.value = 800;
-    oscillator.type = 'sine';
-    
-    gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
-    
-    oscillator.start(audioContext.currentTime);
-    oscillator.stop(audioContext.currentTime + 0.5);
+    try {
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        
+        // Több beep egymás után
+        for (let i = 0; i < 3; i++) {
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.frequency.value = 880;
+            oscillator.type = 'sine';
+            
+            const startTime = audioContext.currentTime + (i * 0.3);
+            gainNode.gain.setValueAtTime(0.3, startTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, startTime + 0.2);
+            
+            oscillator.start(startTime);
+            oscillator.stop(startTime + 0.2);
+        }
+    } catch (err) {
+        console.log('Audio hiba:', err);
+    }
 };
 
 // Értesítés
@@ -183,7 +250,8 @@ const sendNotification = () => {
             icon: 'icon-192.png',
             badge: 'icon-192.png',
             vibrate: [200, 100, 200],
-            tag: 'timer-finished'
+            tag: 'timer-finished',
+            requireInteraction: true
         });
     }
 };
@@ -219,6 +287,7 @@ const showTimer = () => {
     controls.style.display = 'none';
     timerRunning.style.display = 'flex';
     runningControls.style.display = 'flex';
+    document.querySelector('.header-btn').style.display = 'none';
 };
 
 const showPicker = () => {
@@ -227,6 +296,7 @@ const showPicker = () => {
     controls.style.display = 'flex';
     timerRunning.style.display = 'none';
     runningControls.style.display = 'none';
+    document.querySelector('.header-btn').style.display = 'block';
 };
 
 // Timer indítás
@@ -289,11 +359,8 @@ const cancelTimer = () => {
 // Event listenerek
 startBtn.addEventListener('click', startTimer);
 pauseBtn.addEventListener('click', pauseTimer);
-stopBtn.addEventListener('click', () => {
-    stopTimer();
-    showPicker();
-});
 cancelBtn.addEventListener('click', cancelTimer);
+cancelBtnRunning.addEventListener('click', cancelTimer);
 
 // Wake Lock
 let wakeLock = null;
