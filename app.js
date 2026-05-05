@@ -21,6 +21,7 @@ const startBtn = document.getElementById('startBtn');
 const pauseBtn = document.getElementById('pauseBtn');
 const cancelBtn = document.getElementById('cancelBtn');
 const cancelBtnRunning = document.getElementById('cancelBtnRunning');
+const voiceToggle = document.getElementById('voiceToggle');
 
 const progressCircle = document.getElementById('progressCircle');
 
@@ -28,8 +29,19 @@ const progressCircle = document.getElementById('progressCircle');
 let totalSeconds = 0;
 let remainingSeconds = 0;
 let timerInterval = null;
+let tickSoundInterval = null;
 let isRunning = false;
 let isPaused = false;
+let voiceControlEnabled = false;
+
+// Hang vezérlés
+let audioContext = null;
+let analyser = null;
+let microphone = null;
+let javascriptNode = null;
+let lastClapTime = 0;
+const clapThreshold = 0.8;
+const clapTimeout = 500;
 
 // Picker értékek
 let selectedHours = 0;
@@ -67,6 +79,7 @@ const setupPicker = (picker, initialValue, callback) => {
     
     let scrollTimeout;
     let animationFrame;
+    let momentumAnimation = null;
     
     const updatePickerItems = () => {
         const scrollTop = picker.scrollTop;
@@ -76,15 +89,12 @@ const setupPicker = (picker, initialValue, callback) => {
             const distance = Math.abs(index - centerIndex);
             
             if (distance < 0.1) {
-                // Aktív elem
                 item.classList.add('active');
                 item.classList.remove('near');
             } else if (distance < 1.5) {
-                // Közeli elemek
                 item.classList.remove('active');
                 item.classList.add('near');
             } else {
-                // Távoli elemek
                 item.classList.remove('active', 'near');
             }
             
@@ -110,14 +120,20 @@ const setupPicker = (picker, initialValue, callback) => {
         callback(centerIndex);
     };
     
+    // Momentum animáció leállítása
+    const stopMomentum = () => {
+        if (momentumAnimation) {
+            cancelAnimationFrame(momentumAnimation);
+            momentumAnimation = null;
+        }
+    };
+    
     picker.addEventListener('scroll', () => {
-        // Folyamatos frissítés scrollozás közben
         if (animationFrame) {
             cancelAnimationFrame(animationFrame);
         }
         animationFrame = requestAnimationFrame(updatePickerItems);
         
-        // Snap amikor megáll
         clearTimeout(scrollTimeout);
         scrollTimeout = setTimeout(snapToNearest, 150);
     }, { passive: true });
@@ -126,13 +142,16 @@ const setupPicker = (picker, initialValue, callback) => {
     let touchStartY = 0;
     let lastTouchY = 0;
     let lastTouchTime = 0;
-    let velocity = 0;
+    let touchVelocity = 0;
+    let isTouching = false;
     
     picker.addEventListener('touchstart', (e) => {
+        isTouching = true;
+        stopMomentum();
         touchStartY = e.touches[0].clientY;
         lastTouchY = touchStartY;
         lastTouchTime = Date.now();
-        velocity = 0;
+        touchVelocity = 0;
     }, { passive: true });
     
     picker.addEventListener('touchmove', (e) => {
@@ -141,37 +160,54 @@ const setupPicker = (picker, initialValue, callback) => {
         const deltaY = currentY - lastTouchY;
         const deltaTime = currentTime - lastTouchTime;
         
-        velocity = deltaY / (deltaTime || 1);
+        touchVelocity = deltaY / (deltaTime || 1);
         lastTouchY = currentY;
         lastTouchTime = currentTime;
     }, { passive: true });
     
     picker.addEventListener('touchend', () => {
+        isTouching = false;
+        
         // Momentum scrolling
-        if (Math.abs(velocity) > 0.5) {
-            const momentum = velocity * 300;
-            picker.scrollBy({
-                top: -momentum,
-                behavior: 'smooth'
-            });
+        if (Math.abs(touchVelocity) > 0.5) {
+            let currentVelocity = touchVelocity * 300;
+            const friction = 0.95;
+            
+            const animate = () => {
+                if (Math.abs(currentVelocity) < 0.5) {
+                    stopMomentum();
+                    snapToNearest();
+                    return;
+                }
+                
+                picker.scrollTop -= currentVelocity / 60;
+                currentVelocity *= friction;
+                
+                momentumAnimation = requestAnimationFrame(animate);
+            };
+            
+            animate();
         }
     }, { passive: true });
     
-    // EGÉR HÚZÁS TÁMOGATÁS - FLUID SCROLLING
+    // EGÉR HÚZÁS TÁMOGATÁS - ULTRA FLUID
     let isDragging = false;
     let dragStartY = 0;
     let dragLastY = 0;
     let dragLastTime = 0;
     let dragVelocity = 0;
     let dragStartScrollTop = 0;
+    let velocityHistory = [];
     
     picker.addEventListener('mousedown', (e) => {
         isDragging = true;
+        stopMomentum();
         dragStartY = e.clientY;
         dragLastY = e.clientY;
         dragLastTime = Date.now();
         dragVelocity = 0;
         dragStartScrollTop = picker.scrollTop;
+        velocityHistory = [];
         picker.style.cursor = 'grabbing';
         picker.style.userSelect = 'none';
         e.preventDefault();
@@ -182,14 +218,22 @@ const setupPicker = (picker, initialValue, callback) => {
         
         const currentY = e.clientY;
         const currentTime = Date.now();
-        const deltaY = dragLastY - currentY;
+        const deltaY = currentY - dragLastY;
         const deltaTime = currentTime - dragLastTime;
         
         // Folyamatos scrollozás húzás közben
-        picker.scrollTop = dragStartScrollTop + (dragStartY - currentY);
+        const newScrollTop = dragStartScrollTop + (dragStartY - currentY);
+        picker.scrollTop = newScrollTop;
         
-        // Velocity számítás momentum-hoz
-        dragVelocity = deltaY / (deltaTime || 1);
+        // Velocity tracking több pontból
+        if (deltaTime > 0) {
+            const instantVelocity = deltaY / deltaTime;
+            velocityHistory.push(instantVelocity);
+            if (velocityHistory.length > 5) {
+                velocityHistory.shift();
+            }
+        }
+        
         dragLastY = currentY;
         dragLastTime = currentTime;
         
@@ -203,17 +247,44 @@ const setupPicker = (picker, initialValue, callback) => {
         picker.style.cursor = 'grab';
         picker.style.userSelect = 'none';
         
+        // Átlagos velocity számítás
+        const avgVelocity = velocityHistory.length > 0
+            ? velocityHistory.reduce((a, b) => a + b, 0) / velocityHistory.length
+            : 0;
+        
         // Momentum scrolling - pörgetés
-        if (Math.abs(dragVelocity) > 0.5) {
-            const momentum = dragVelocity * 300;
-            picker.scrollBy({
-                top: momentum,
-                behavior: 'smooth'
-            });
+        if (Math.abs(avgVelocity) > 0.3) {
+            let currentVelocity = avgVelocity * 400;
+            const friction = 0.95;
+            const minVelocity = 0.5;
+            
+            const animate = () => {
+                if (Math.abs(currentVelocity) < minVelocity) {
+                    stopMomentum();
+                    snapToNearest();
+                    return;
+                }
+                
+                picker.scrollTop -= currentVelocity / 60;
+                currentVelocity *= friction;
+                
+                momentumAnimation = requestAnimationFrame(animate);
+            };
+            
+            animate();
         } else {
             snapToNearest();
         }
     };
+    
+    // Megfogás közben megállítás
+    picker.addEventListener('mousedown', () => {
+        stopMomentum();
+    });
+    
+    picker.addEventListener('touchstart', () => {
+        stopMomentum();
+    }, { passive: true });
     
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
@@ -221,15 +292,14 @@ const setupPicker = (picker, initialValue, callback) => {
     // SCROLL WHEEL TÁMOGATÁS - egyet ugrik
     picker.addEventListener('wheel', (e) => {
         e.preventDefault();
+        stopMomentum();
         
         const currentIndex = Math.round(picker.scrollTop / itemHeight);
         let newIndex = currentIndex;
         
         if (e.deltaY > 0) {
-            // Lefelé
             newIndex = Math.min(items.length - 1, currentIndex + 1);
         } else if (e.deltaY < 0) {
-            // Felfelé
             newIndex = Math.max(0, currentIndex - 1);
         }
         
@@ -310,20 +380,20 @@ const playSound = () => {
     }
     
     try {
-        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
         
         // Több beep egymás után
         for (let i = 0; i < 3; i++) {
-            const oscillator = audioContext.createOscillator();
-            const gainNode = audioContext.createGain();
+            const oscillator = ctx.createOscillator();
+            const gainNode = ctx.createGain();
             
             oscillator.connect(gainNode);
-            gainNode.connect(audioContext.destination);
+            gainNode.connect(ctx.destination);
             
             oscillator.frequency.value = 880;
             oscillator.type = 'sine';
             
-            const startTime = audioContext.currentTime + (i * 0.3);
+            const startTime = ctx.currentTime + (i * 0.3);
             gainNode.gain.setValueAtTime(0.3, startTime);
             gainNode.gain.exponentialRampToValueAtTime(0.01, startTime + 0.2);
             
@@ -332,6 +402,126 @@ const playSound = () => {
         }
     } catch (err) {
         console.log('Audio hiba:', err);
+    }
+};
+
+// Tick hang (csorogás)
+const playTickSound = () => {
+    try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = ctx.createOscillator();
+        const gainNode = ctx.createGain();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(ctx.destination);
+        
+        oscillator.frequency.value = 1200;
+        oscillator.type = 'sine';
+        
+        gainNode.gain.setValueAtTime(0.05, ctx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.05);
+        
+        oscillator.start(ctx.currentTime);
+        oscillator.stop(ctx.currentTime + 0.05);
+    } catch (err) {
+        console.log('Tick hang hiba:', err);
+    }
+};
+
+// Hang vezérlés indítása
+const startVoiceControl = async () => {
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        analyser = audioContext.createAnalyser();
+        microphone = audioContext.createMediaStreamSource(stream);
+        javascriptNode = audioContext.createScriptProcessor(2048, 1, 1);
+        
+        analyser.smoothingTimeConstant = 0.3;
+        analyser.fftSize = 1024;
+        
+        microphone.connect(analyser);
+        analyser.connect(javascriptNode);
+        javascriptNode.connect(audioContext.destination);
+        
+        let clapCount = 0;
+        let lastClapDetected = 0;
+        
+        javascriptNode.onaudioprocess = () => {
+            if (!voiceControlEnabled) return;
+            
+            const array = new Uint8Array(analyser.frequencyBinCount);
+            analyser.getByteFrequencyData(array);
+            
+            // Átlagos hangerő
+            const average = array.reduce((a, b) => a + b) / array.length;
+            const normalized = average / 255;
+            
+            const now = Date.now();
+            
+            // Taps detektálás
+            if (normalized > clapThreshold) {
+                if (now - lastClapDetected > 100) {
+                    clapCount++;
+                    lastClapDetected = now;
+                    
+                    if (clapCount === 1) {
+                        setTimeout(() => {
+                            if (clapCount === 2) {
+                                // Dupla taps!
+                                handleDoubleClapAction();
+                            }
+                            clapCount = 0;
+                        }, clapTimeout);
+                    }
+                }
+            }
+        };
+        
+        voiceControlEnabled = true;
+        voiceToggle.classList.add('active');
+        voiceToggle.querySelector('i').className = 'bi bi-mic-fill';
+        
+    } catch (err) {
+        console.log('Mikrofon hozzáférés hiba:', err);
+        alert('Mikrofon hozzáférés szükséges a hang vezérléshez!');
+    }
+};
+
+// Hang vezérlés leállítása
+const stopVoiceControl = () => {
+    if (javascriptNode) {
+        javascriptNode.disconnect();
+        javascriptNode = null;
+    }
+    if (microphone) {
+        microphone.disconnect();
+        microphone = null;
+    }
+    if (analyser) {
+        analyser.disconnect();
+        analyser = null;
+    }
+    if (audioContext) {
+        audioContext.close();
+        audioContext = null;
+    }
+    
+    voiceControlEnabled = false;
+    voiceToggle.classList.remove('active');
+    voiceToggle.querySelector('i').className = 'bi bi-mic-mute';
+};
+
+// Dupla taps akció
+const handleDoubleClapAction = () => {
+    if (!isRunning) {
+        // Indítás
+        startTimer();
+    } else {
+        // Leállítás
+        stopTimer();
+        showPicker();
     }
 };
 
@@ -359,6 +549,9 @@ const requestNotificationPermission = () => {
 const tick = () => {
     remainingSeconds--;
     updateDisplay();
+    
+    // Tick hang lejátszása
+    playTickSound();
     
     if (remainingSeconds <= 0) {
         stopTimer();
@@ -420,13 +613,13 @@ const pauseTimer = () => {
         timerInterval = setInterval(tick, 1000);
         isPaused = false;
         pauseBtn.querySelector('.btn-label').textContent = 'Szünet';
-        pauseBtn.querySelector('.btn-icon').textContent = '⏸';
+        pauseBtn.querySelector('.btn-icon').innerHTML = '<i class="bi bi-pause-fill"></i>';
     } else {
         // Szünet
         clearInterval(timerInterval);
         isPaused = true;
         pauseBtn.querySelector('.btn-label').textContent = 'Folytatás';
-        pauseBtn.querySelector('.btn-icon').textContent = '▶';
+        pauseBtn.querySelector('.btn-icon').innerHTML = '<i class="bi bi-play-fill"></i>';
     }
 };
 
@@ -438,7 +631,7 @@ const stopTimer = () => {
     releaseWakeLock();
     
     pauseBtn.querySelector('.btn-label').textContent = 'Szünet';
-    pauseBtn.querySelector('.btn-icon').textContent = '⏸';
+    pauseBtn.querySelector('.btn-icon').innerHTML = '<i class="bi bi-pause-fill"></i>';
 };
 
 // Cancel gomb
@@ -454,6 +647,15 @@ startBtn.addEventListener('click', startTimer);
 pauseBtn.addEventListener('click', pauseTimer);
 cancelBtn.addEventListener('click', cancelTimer);
 cancelBtnRunning.addEventListener('click', cancelTimer);
+
+// Voice toggle
+voiceToggle.addEventListener('click', () => {
+    if (voiceControlEnabled) {
+        stopVoiceControl();
+    } else {
+        startVoiceControl();
+    }
+});
 
 // Wake Lock
 let wakeLock = null;
