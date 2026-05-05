@@ -150,7 +150,79 @@ const setupPicker = (picker, initialValue, callback) => {
         }
     }, { passive: true });
     
+    // EGÉR HÚZÁS TÁMOGATÁS
+    let isDragging = false;
+    let mouseStartY = 0;
+    let mouseLastY = 0;
+    let mouseVelocity = 0;
+    let startScrollTop = 0;
+    
+    picker.addEventListener('mousedown', (e) => {
+        isDragging = true;
+        mouseStartY = e.clientY;
+        mouseLastY = e.clientY;
+        mouseVelocity = 0;
+        startScrollTop = picker.scrollTop;
+        picker.style.cursor = 'grabbing';
+        picker.style.scrollBehavior = 'auto';
+        e.preventDefault();
+    });
+    
+    document.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        
+        const deltaY = mouseLastY - e.clientY;
+        mouseVelocity = deltaY;
+        mouseLastY = e.clientY;
+        
+        picker.scrollTop += deltaY;
+        e.preventDefault();
+    });
+    
+    document.addEventListener('mouseup', (e) => {
+        if (!isDragging) return;
+        
+        isDragging = false;
+        picker.style.cursor = 'grab';
+        picker.style.scrollBehavior = 'smooth';
+        
+        // Momentum scrolling egérrel is
+        if (Math.abs(mouseVelocity) > 2) {
+            const momentum = mouseVelocity * 8;
+            picker.scrollBy({
+                top: momentum,
+                behavior: 'smooth'
+            });
+        } else {
+            snapToNearest();
+        }
+    });
+    
+    // SCROLL WHEEL TÁMOGATÁS - egyet ugrik
+    picker.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        
+        const currentIndex = Math.round(picker.scrollTop / itemHeight);
+        let newIndex = currentIndex;
+        
+        if (e.deltaY > 0) {
+            // Lefelé
+            newIndex = Math.min(items.length - 1, currentIndex + 1);
+        } else if (e.deltaY < 0) {
+            // Felfelé
+            newIndex = Math.max(0, currentIndex - 1);
+        }
+        
+        picker.scrollTo({
+            top: newIndex * itemHeight,
+            behavior: 'smooth'
+        });
+        
+        callback(newIndex);
+    }, { passive: false });
+    
     // Kezdeti állapot
+    picker.style.cursor = 'grab';
     updatePickerItems();
     items[initialValue]?.classList.add('active');
 };
