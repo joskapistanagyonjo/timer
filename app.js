@@ -6,14 +6,23 @@ if ('serviceWorker' in navigator) {
 }
 
 // Elemek
+const pickerContainer = document.getElementById('pickerContainer');
+const timerRunning = document.getElementById('timerRunning');
 const timerDisplay = document.getElementById('timerDisplay');
-const minutesInput = document.getElementById('minutes');
-const secondsInput = document.getElementById('seconds');
+const quickButtons = document.getElementById('quickButtons');
+const controls = document.querySelector('.controls');
+const runningControls = document.getElementById('runningControls');
+
+const hoursPicker = document.getElementById('hoursPicker');
+const minutesPicker = document.getElementById('minutesPicker');
+const secondsPicker = document.getElementById('secondsPicker');
+
 const startBtn = document.getElementById('startBtn');
 const pauseBtn = document.getElementById('pauseBtn');
-const resetBtn = document.getElementById('resetBtn');
-const timeInputs = document.getElementById('timeInputs');
-const presetBtns = document.querySelectorAll('.preset-btn');
+const stopBtn = document.getElementById('stopBtn');
+const cancelBtn = document.getElementById('cancelBtn');
+
+const progressCircle = document.getElementById('progressCircle');
 
 // Állapot
 let totalSeconds = 0;
@@ -22,14 +31,133 @@ let timerInterval = null;
 let isRunning = false;
 let isPaused = false;
 
+// Picker értékek
+let selectedHours = 0;
+let selectedMinutes = 5;
+let selectedSeconds = 0;
+
+// Progress ring setup
+const radius = 130;
+const circumference = 2 * Math.PI * radius;
+progressCircle.style.strokeDasharray = `${circumference} ${circumference}`;
+progressCircle.style.strokeDashoffset = circumference;
+
+// Picker generálás
+const generatePickerItems = (max, picker, type) => {
+    for (let i = 0; i <= max; i++) {
+        const item = document.createElement('div');
+        item.className = 'picker-item';
+        item.textContent = i;
+        item.dataset.value = i;
+        picker.appendChild(item);
+    }
+};
+
+generatePickerItems(23, hoursPicker, 'hours');
+generatePickerItems(59, minutesPicker, 'minutes');
+generatePickerItems(59, secondsPicker, 'seconds');
+
+// Picker scroll kezelés
+const setupPicker = (picker, initialValue, callback) => {
+    const items = picker.querySelectorAll('.picker-item');
+    const itemHeight = 44;
+    
+    // Kezdő pozíció beállítása
+    picker.scrollTop = initialValue * itemHeight;
+    
+    let isScrolling;
+    
+    picker.addEventListener('scroll', () => {
+        clearTimeout(isScrolling);
+        
+        // Aktuális elem kiemelése
+        const scrollTop = picker.scrollTop;
+        const centerIndex = Math.round(scrollTop / itemHeight);
+        
+        items.forEach((item, index) => {
+            if (index === centerIndex) {
+                item.classList.add('active');
+            } else {
+                item.classList.remove('active');
+            }
+        });
+        
+        // Snap to position
+        isScrolling = setTimeout(() => {
+            const targetScroll = centerIndex * itemHeight;
+            picker.scrollTo({
+                top: targetScroll,
+                behavior: 'smooth'
+            });
+            callback(centerIndex);
+        }, 100);
+    });
+    
+    // Kezdeti aktív elem
+    items[initialValue]?.classList.add('active');
+};
+
+setupPicker(hoursPicker, selectedHours, (value) => {
+    selectedHours = value;
+});
+
+setupPicker(minutesPicker, selectedMinutes, (value) => {
+    selectedMinutes = value;
+});
+
+setupPicker(secondsPicker, selectedSeconds, (value) => {
+    selectedSeconds = value;
+});
+
+// Gyors gombok
+document.querySelectorAll('.quick-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const seconds = parseInt(btn.dataset.time);
+        const hours = Math.floor(seconds / 3600);
+        const minutes = Math.floor((seconds % 3600) / 60);
+        const secs = seconds % 60;
+        
+        selectedHours = hours;
+        selectedMinutes = minutes;
+        selectedSeconds = secs;
+        
+        hoursPicker.scrollTo({ top: hours * 44, behavior: 'smooth' });
+        minutesPicker.scrollTo({ top: minutes * 44, behavior: 'smooth' });
+        secondsPicker.scrollTo({ top: secs * 44, behavior: 'smooth' });
+    });
+});
+
+// Idő formázás
+const formatTime = (seconds) => {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+    
+    if (h > 0) {
+        return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    }
+    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+};
+
+// Progress ring frissítés
+const updateProgress = () => {
+    const progress = remainingSeconds / totalSeconds;
+    const offset = circumference - (progress * circumference);
+    progressCircle.style.strokeDashoffset = offset;
+};
+
+// Kijelző frissítés
+const updateDisplay = () => {
+    timerDisplay.textContent = formatTime(remainingSeconds);
+    updateProgress();
+};
+
 // Hang lejátszás
 const playSound = () => {
-    // Vibráció ha támogatott
     if ('vibrate' in navigator) {
         navigator.vibrate([200, 100, 200, 100, 200]);
     }
     
-    // Beep hang generálás
     const audioContext = new (window.AudioContext || window.webkitAudioContext)();
     const oscillator = audioContext.createOscillator();
     const gainNode = audioContext.createGain();
@@ -47,7 +175,7 @@ const playSound = () => {
     oscillator.stop(audioContext.currentTime + 0.5);
 };
 
-// Értesítés küldés
+// Értesítés
 const sendNotification = () => {
     if ('Notification' in window && Notification.permission === 'granted') {
         new Notification('Időzítő lejárt! ⏰', {
@@ -60,23 +188,10 @@ const sendNotification = () => {
     }
 };
 
-// Értesítés engedély kérés
 const requestNotificationPermission = () => {
     if ('Notification' in window && Notification.permission === 'default') {
         Notification.requestPermission();
     }
-};
-
-// Idő formázás
-const formatTime = (seconds) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-};
-
-// Kijelző frissítés
-const updateDisplay = () => {
-    timerDisplay.textContent = formatTime(remainingSeconds);
 };
 
 // Timer tick
@@ -92,55 +207,64 @@ const tick = () => {
         
         setTimeout(() => {
             timerDisplay.classList.remove('finished');
+            showPicker();
         }, 3000);
     }
 };
 
+// Nézet váltás
+const showTimer = () => {
+    pickerContainer.style.display = 'none';
+    quickButtons.style.display = 'none';
+    controls.style.display = 'none';
+    timerRunning.style.display = 'flex';
+    runningControls.style.display = 'flex';
+};
+
+const showPicker = () => {
+    pickerContainer.style.display = 'flex';
+    quickButtons.style.display = 'grid';
+    controls.style.display = 'flex';
+    timerRunning.style.display = 'none';
+    runningControls.style.display = 'none';
+};
+
 // Timer indítás
 const startTimer = () => {
-    if (!isRunning) {
-        const mins = parseInt(minutesInput.value) || 0;
-        const secs = parseInt(secondsInput.value) || 0;
-        totalSeconds = mins * 60 + secs;
-        
-        if (totalSeconds <= 0) {
-            alert('Adj meg egy időt!');
-            return;
-        }
-        
-        remainingSeconds = totalSeconds;
-        requestNotificationPermission();
+    totalSeconds = selectedHours * 3600 + selectedMinutes * 60 + selectedSeconds;
+    
+    if (totalSeconds <= 0) {
+        return;
     }
     
+    remainingSeconds = totalSeconds;
     isRunning = true;
     isPaused = false;
     
-    timerInterval = setInterval(tick, 1000);
+    requestNotificationPermission();
+    requestWakeLock();
     
-    startBtn.style.display = 'none';
-    pauseBtn.style.display = 'block';
-    resetBtn.style.display = 'block';
-    timeInputs.style.display = 'none';
-    
+    showTimer();
     updateDisplay();
+    
+    timerInterval = setInterval(tick, 1000);
 };
 
 // Timer szüneteltetés
 const pauseTimer = () => {
-    clearInterval(timerInterval);
-    isPaused = true;
-    
-    pauseBtn.textContent = 'Folytatás';
-    pauseBtn.onclick = resumeTimer;
-};
-
-// Timer folytatás
-const resumeTimer = () => {
-    timerInterval = setInterval(tick, 1000);
-    isPaused = false;
-    
-    pauseBtn.textContent = 'Szünet';
-    pauseBtn.onclick = pauseTimer;
+    if (isPaused) {
+        // Folytatás
+        timerInterval = setInterval(tick, 1000);
+        isPaused = false;
+        pauseBtn.querySelector('.btn-label').textContent = 'Szünet';
+        pauseBtn.querySelector('.btn-icon').textContent = '⏸';
+    } else {
+        // Szünet
+        clearInterval(timerInterval);
+        isPaused = true;
+        pauseBtn.querySelector('.btn-label').textContent = 'Folytatás';
+        pauseBtn.querySelector('.btn-icon').textContent = '▶';
+    }
 };
 
 // Timer leállítás
@@ -148,49 +272,30 @@ const stopTimer = () => {
     clearInterval(timerInterval);
     isRunning = false;
     isPaused = false;
+    releaseWakeLock();
     
-    startBtn.style.display = 'block';
-    pauseBtn.style.display = 'none';
-    resetBtn.style.display = 'none';
-    timeInputs.style.display = 'flex';
-    
-    pauseBtn.textContent = 'Szünet';
-    pauseBtn.onclick = pauseTimer;
+    pauseBtn.querySelector('.btn-label').textContent = 'Szünet';
+    pauseBtn.querySelector('.btn-icon').textContent = '⏸';
 };
 
-// Timer reset
-const resetTimer = () => {
-    stopTimer();
-    remainingSeconds = 0;
-    updateDisplay();
+// Cancel gomb
+const cancelTimer = () => {
+    if (isRunning) {
+        stopTimer();
+        showPicker();
+    }
 };
-
-// Preset gombok
-presetBtns.forEach(btn => {
-    btn.addEventListener('click', () => {
-        const seconds = parseInt(btn.dataset.time);
-        minutesInput.value = Math.floor(seconds / 60);
-        secondsInput.value = seconds % 60;
-    });
-});
 
 // Event listenerek
 startBtn.addEventListener('click', startTimer);
 pauseBtn.addEventListener('click', pauseTimer);
-resetBtn.addEventListener('click', resetTimer);
-
-// Input validáció
-minutesInput.addEventListener('input', (e) => {
-    if (e.target.value > 99) e.target.value = 99;
-    if (e.target.value < 0) e.target.value = 0;
+stopBtn.addEventListener('click', () => {
+    stopTimer();
+    showPicker();
 });
+cancelBtn.addEventListener('click', cancelTimer);
 
-secondsInput.addEventListener('input', (e) => {
-    if (e.target.value > 59) e.target.value = 59;
-    if (e.target.value < 0) e.target.value = 0;
-});
-
-// Wake Lock API - képernyő ébren tartása
+// Wake Lock
 let wakeLock = null;
 
 const requestWakeLock = async () => {
@@ -210,18 +315,5 @@ const releaseWakeLock = () => {
     }
 };
 
-// Wake Lock kezelés timer indításkor/leállításkor
-const originalStartTimer = startTimer;
-startTimer = () => {
-    originalStartTimer();
-    requestWakeLock();
-};
-
-const originalStopTimer = stopTimer;
-stopTimer = () => {
-    originalStopTimer();
-    releaseWakeLock();
-};
-
-// Kezdeti kijelző
+// Kezdeti állapot
 updateDisplay();
