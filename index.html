@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Időzítő">
+    <meta name="apple-mobile-web-app-title" content="Fitness+">
     <meta name="theme-color" content="#000000">
-    <title>Időzítő</title>
+    <title>Fitness+</title>
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="icon-192.png">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
@@ -15,84 +15,170 @@
 </head>
 <body>
     <div class="app">
-        <!-- Header -->
-        <div class="header">
-            <div class="header-left">
-                <button class="header-btn" id="cancelBtn">Mégse</button>
+        <!-- Home Screen -->
+        <div class="home-screen" id="homeScreen">
+            <div class="home-header">
+                <div class="home-time" id="homeTime">12:00</div>
+                <div class="home-title">Fitness+</div>
             </div>
-            <div class="header-title">Időzítő</div>
-            <div class="header-right">
-                <button class="voice-toggle" id="voiceToggle">
-                    <i class="bi bi-mic-mute"></i>
+            
+            <div class="app-grid">
+                <div class="app-card" data-app="timer">
+                    <div class="app-icon timer-icon">
+                        <i class="bi bi-stopwatch"></i>
+                    </div>
+                    <div class="app-name">Időzítő</div>
+                </div>
+                
+                <div class="app-card" data-app="workout">
+                    <div class="app-icon workout-icon">
+                        <i class="bi bi-heart-pulse"></i>
+                    </div>
+                    <div class="app-name">Edzés</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Timer App -->
+        <div class="timer-app app-view" id="timerApp" style="display: none;">
+            <div class="header">
+                <div class="header-left">
+                    <button class="header-btn" id="timerBack">
+                        <i class="bi bi-chevron-left"></i> Vissza
+                    </button>
+                </div>
+                <div class="header-title">Időzítő</div>
+                <div class="header-right">
+                    <button class="voice-toggle" id="voiceToggle">
+                        <i class="bi bi-mic-mute"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="timer-running" id="timerRunning" style="display: none;">
+                <div class="timer-circle">
+                    <svg class="progress-ring" width="300" height="300">
+                        <circle class="progress-ring-bg" cx="150" cy="150" r="145" />
+                        <circle class="progress-ring-circle" cx="150" cy="150" r="145" id="progressCircle" />
+                    </svg>
+                    <div class="timer-time" id="timerDisplay">00:00</div>
+                </div>
+            </div>
+
+            <div class="picker-container" id="pickerContainer">
+                <div class="picker-wrapper">
+                    <div class="picker-highlight"></div>
+                    
+                    <div class="picker-column">
+                        <div class="picker-scroll" id="hoursPicker"></div>
+                        <div class="picker-label">óra</div>
+                    </div>
+                    
+                    <div class="picker-column">
+                        <div class="picker-scroll" id="minutesPicker"></div>
+                        <div class="picker-label">perc</div>
+                    </div>
+                    
+                    <div class="picker-column">
+                        <div class="picker-scroll" id="secondsPicker"></div>
+                        <div class="picker-label">mp</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="quick-buttons" id="quickButtons">
+                <button class="quick-btn" data-time="60">1 MIN</button>
+                <button class="quick-btn" data-time="180">3 MIN</button>
+                <button class="quick-btn" data-time="300">5 MIN</button>
+                <button class="quick-btn" data-time="600">10 MIN</button>
+            </div>
+
+            <div class="controls">
+                <button class="control-btn start-btn" id="startBtn">
+                    <div class="btn-icon"><i class="bi bi-play-fill"></i></div>
+                    <div class="btn-label">Indítás</div>
+                </button>
+            </div>
+
+            <div class="running-controls" id="runningControls" style="display: none;">
+                <button class="control-btn pause-btn" id="pauseBtn">
+                    <div class="btn-icon"><i class="bi bi-pause-fill"></i></div>
+                    <div class="btn-label">Szünet</div>
+                </button>
+                <button class="control-btn cancel-btn" id="cancelBtnRunning">
+                    <div class="btn-icon"><i class="bi bi-x-lg"></i></div>
+                    <div class="btn-label">Mégse</div>
                 </button>
             </div>
         </div>
 
-        <!-- Timer Display (amikor fut) -->
-        <div class="timer-running" id="timerRunning" style="display: none;">
-            <div class="timer-circle">
-                <svg class="progress-ring" width="280" height="280">
-                    <circle class="progress-ring-bg" cx="140" cy="140" r="130" />
-                    <circle class="progress-ring-circle" cx="140" cy="140" r="130" id="progressCircle" />
-                </svg>
-                <div class="timer-time" id="timerDisplay">00:00</div>
-            </div>
-        </div>
-
-        <!-- Picker (amikor állítjuk) -->
-        <div class="picker-container" id="pickerContainer">
-            <div class="picker-wrapper">
-                <div class="picker-highlight"></div>
-                
-                <div class="picker-column">
-                    <div class="picker-scroll" id="hoursPicker">
-                        <!-- Órák generálva JS-ből -->
-                    </div>
-                    <div class="picker-label">óra</div>
+        <!-- Workout App -->
+        <div class="workout-app app-view" id="workoutApp" style="display: none;">
+            <div class="header">
+                <div class="header-left">
+                    <button class="header-btn" id="workoutBack">
+                        <i class="bi bi-chevron-left"></i> Vissza
+                    </button>
                 </div>
-                
-                <div class="picker-column">
-                    <div class="picker-scroll" id="minutesPicker">
-                        <!-- Percek generálva JS-ből -->
-                    </div>
-                    <div class="picker-label">perc</div>
-                </div>
-                
-                <div class="picker-column">
-                    <div class="picker-scroll" id="secondsPicker">
-                        <!-- Másodpercek generálva JS-ből -->
-                    </div>
-                    <div class="picker-label">mp</div>
+                <div class="header-title">Edzés</div>
+                <div class="header-right">
+                    <button class="header-btn" id="historyBtn">
+                        <i class="bi bi-clock-history"></i>
+                    </button>
                 </div>
             </div>
-        </div>
 
-        <!-- Gyors gombok -->
-        <div class="quick-buttons" id="quickButtons">
-            <button class="quick-btn" data-time="60">1 MIN</button>
-            <button class="quick-btn" data-time="180">3 MIN</button>
-            <button class="quick-btn" data-time="300">5 MIN</button>
-            <button class="quick-btn" data-time="600">10 MIN</button>
-        </div>
+            <div class="workout-content" id="workoutContent">
+                <div class="workout-form">
+                    <div class="form-group">
+                        <label>Gyakorlat</label>
+                        <input type="text" id="exerciseName" placeholder="pl. Bench Press" class="form-input">
+                    </div>
 
-        <!-- Control gombok -->
-        <div class="controls">
-            <button class="control-btn start-btn" id="startBtn">
-                <div class="btn-icon"><i class="bi bi-play-fill"></i></div>
-                <div class="btn-label">Indítás</div>
-            </button>
-        </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Súly (kg)</label>
+                            <input type="number" id="exerciseWeight" placeholder="0" class="form-input" step="0.5">
+                        </div>
+                        <div class="form-group">
+                            <label>Ismétlés</label>
+                            <input type="number" id="exerciseReps" placeholder="0" class="form-input">
+                        </div>
+                    </div>
 
-        <!-- Running controls -->
-        <div class="running-controls" id="runningControls" style="display: none;">
-            <button class="control-btn pause-btn" id="pauseBtn">
-                <div class="btn-icon"><i class="bi bi-pause-fill"></i></div>
-                <div class="btn-label">Szünet</div>
-            </button>
-            <button class="control-btn cancel-btn" id="cancelBtnRunning">
-                <div class="btn-icon"><i class="bi bi-x-lg"></i></div>
-                <div class="btn-label">Mégse</div>
-            </button>
+                    <button class="add-set-btn" id="addSetBtn">
+                        <i class="bi bi-plus-circle"></i> Sorozat hozzáadása
+                    </button>
+                </div>
+
+                <div class="current-workout" id="currentWorkout">
+                    <div class="section-title">Mai edzés</div>
+                    <div class="workout-sets" id="workoutSets">
+                        <div class="empty-state">
+                            <i class="bi bi-clipboard-check"></i>
+                            <p>Még nincs rögzített sorozat</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- History Modal -->
+            <div class="modal" id="historyModal" style="display: none;">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>Edzés napló</h3>
+                        <button class="modal-close" id="closeHistory">
+                            <i class="bi bi-x-lg"></i>
+                        </button>
+                    </div>
+                    <div class="modal-body" id="historyList">
+                        <div class="empty-state">
+                            <i class="bi bi-calendar-x"></i>
+                            <p>Még nincs edzés napló</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
