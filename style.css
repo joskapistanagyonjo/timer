@@ -77,13 +77,13 @@ body {
 }
 
 .app-icon {
-    width: 80px;
-    height: 80px;
-    border-radius: 20px;
+    width: 64px;
+    height: 64px;
+    border-radius: 16px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 40px;
+    font-size: 32px;
 }
 
 .timer-icon {
@@ -97,7 +97,7 @@ body {
 }
 
 .app-name {
-    font-size: 17px;
+    font-size: 15px;
     font-weight: 500;
     color: #ffffff;
 }
@@ -399,6 +399,218 @@ body {
     flex: 1;
     overflow-y: auto;
     padding: 20px;
+}
+
+.workout-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.workout-tabs::-webkit-scrollbar {
+    display: none;
+}
+
+.tab-btn {
+    background: #1c1c1e;
+    border: none;
+    border-radius: 20px;
+    padding: 10px 20px;
+    font-size: 15px;
+    color: #8e8e93;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s ease;
+    font-weight: 500;
+}
+
+.tab-btn.active {
+    background: #ff453a;
+    color: #ffffff;
+}
+
+.tab-btn:active {
+    transform: scale(0.95);
+}
+
+.workout-view {
+    display: none;
+}
+
+.workout-view.active {
+    display: block;
+}
+
+.plan-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.plan-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.icon-btn {
+    background: #1c1c1e;
+    border: none;
+    border-radius: 10px;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ff9f0a;
+    font-size: 18px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.icon-btn:active {
+    transform: scale(0.9);
+    background: #2c2c2e;
+}
+
+.plan-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.plan-item {
+    background: #1c1c1e;
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.plan-item-info {
+    flex: 1;
+}
+
+.plan-item-name {
+    font-size: 17px;
+    font-weight: 500;
+    margin-bottom: 4px;
+}
+
+.plan-item-exercises {
+    font-size: 14px;
+    color: #8e8e93;
+}
+
+.plan-item-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.small-icon-btn {
+    background: none;
+    border: none;
+    color: #8e8e93;
+    font-size: 18px;
+    cursor: pointer;
+    padding: 8px;
+}
+
+.small-icon-btn.start {
+    color: #30d158;
+}
+
+.small-icon-btn.edit {
+    color: #ff9f0a;
+}
+
+.small-icon-btn.delete {
+    color: #ff453a;
+}
+
+.small-icon-btn:active {
+    opacity: 0.5;
+}
+
+.exercise-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.exercise-item {
+    background: #1c1c1e;
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.exercise-info {
+    flex: 1;
+}
+
+.exercise-name {
+    font-size: 17px;
+    font-weight: 500;
+    margin-bottom: 4px;
+}
+
+.exercise-target {
+    font-size: 14px;
+    color: #8e8e93;
+}
+
+.exercise-input-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.mini-input {
+    width: 60px;
+    background: #2c2c2e;
+    border: none;
+    border-radius: 8px;
+    padding: 8px;
+    font-size: 15px;
+    color: #ffffff;
+    text-align: center;
+}
+
+.mini-input:focus {
+    outline: none;
+    background: #3a3a3c;
+}
+
+.check-btn {
+    background: #1d3a2a;
+    border: none;
+    border-radius: 8px;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #30d158;
+    font-size: 18px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.check-btn.checked {
+    background: #30d158;
+    color: #000000;
+}
+
+.check-btn:active {
+    transform: scale(0.9);
 }
 
 .workout-form {

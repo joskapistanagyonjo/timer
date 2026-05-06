@@ -657,7 +657,43 @@ const historyModal = document.getElementById('historyModal');
 const closeHistory = document.getElementById('closeHistory');
 const historyList = document.getElementById('historyList');
 
+// New elements
+const planList = document.getElementById('planList');
+const addPlanBtn = document.getElementById('addPlanBtn');
+const planModal = document.getElementById('planModal');
+const closePlanModal = document.getElementById('closePlanModal');
+const planModalTitle = document.getElementById('planModalTitle');
+const planNameInput = document.getElementById('planName');
+const planExercises = document.getElementById('planExercises');
+const addExerciseToPlan = document.getElementById('addExerciseToPlan');
+const savePlanBtn = document.getElementById('savePlanBtn');
+const activeExerciseList = document.getElementById('activeExerciseList');
+const activePlanName = document.getElementById('activePlanName');
+
 let todayWorkout = [];
+let workoutPlans = [];
+let currentEditingPlan = null;
+let activePlan = null;
+let activeWorkoutData = [];
+
+// Tab switching
+document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.workout-view').forEach(v => v.classList.remove('active'));
+        
+        btn.classList.add('active');
+        const tab = btn.dataset.tab;
+        
+        if (tab === 'plans') {
+            document.getElementById('plansView').classList.add('active');
+        } else if (tab === 'active') {
+            document.getElementById('activeView').classList.add('active');
+        } else if (tab === 'quick') {
+            document.getElementById('quickView').classList.add('active');
+        }
+    });
+});
 
 // LocalStorage
 const saveWorkout = () => {
@@ -672,6 +708,15 @@ const loadTodayWorkout = () => {
     const workouts = JSON.parse(localStorage.getItem('workouts') || '{}');
     todayWorkout = workouts[today] || [];
     renderWorkoutSets();
+};
+
+const savePlans = () => {
+    localStorage.setItem('workoutPlans', JSON.stringify(workoutPlans));
+};
+
+const loadPlans = () => {
+    workoutPlans = JSON.parse(localStorage.getItem('workoutPlans') || '[]');
+    renderPlanList();
 };
 
 const renderWorkoutSets = () => {
@@ -698,7 +743,6 @@ const renderWorkoutSets = () => {
         </div>
     `).join('');
     
-    // Delete buttons
     document.querySelectorAll('.delete-set').forEach(btn => {
         btn.addEventListener('click', () => {
             const index = parseInt(btn.dataset.index);
@@ -709,6 +753,281 @@ const renderWorkoutSets = () => {
     });
 };
 
+const renderPlanList = () => {
+    if (workoutPlans.length === 0) {
+        planList.innerHTML = `
+            <div class="empty-state">
+                <i class="bi bi-journal-text"></i>
+                <p>Még nincs edzésterv</p>
+            </div>
+        `;
+        return;
+    }
+    
+    planList.innerHTML = workoutPlans.map((plan, index) => `
+        <div class="plan-item">
+            <div class="plan-item-info">
+                <div class="plan-item-name">${plan.name}</div>
+                <div class="plan-item-exercises">${plan.exercises.length} gyakorlat</div>
+            </div>
+            <div class="plan-item-actions">
+                <button class="small-icon-btn start" data-index="${index}">
+                    <i class="bi bi-play-circle-fill"></i>
+                </button>
+                <button class="small-icon-btn edit" data-index="${index}">
+                    <i class="bi bi-pencil"></i>
+                </button>
+                <button class="small-icon-btn delete" data-index="${index}">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </div>
+        </div>
+    `).join('');
+    
+    // Start plan
+    document.querySelectorAll('.small-icon-btn.start').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const index = parseInt(btn.dataset.index);
+            startPlan(index);
+        });
+    });
+    
+    // Edit plan
+    document.querySelectorAll('.small-icon-btn.edit').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const index = parseInt(btn.dataset.index);
+            editPlan(index);
+        });
+    });
+    
+    // Delete plan
+    document.querySelectorAll('.small-icon-btn.delete').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const index = parseInt(btn.dataset.index);
+            if (confirm('Biztosan törlöd ezt a tervet?')) {
+                workoutPlans.splice(index, 1);
+                savePlans();
+                renderPlanList();
+            }
+        });
+    });
+};
+
+const renderPlanExercises = (exercises = []) => {
+    planExercises.innerHTML = exercises.map((ex, index) => `
+        <div class="form-group" style="background: #2c2c2e; padding: 12px; border-radius: 10px; margin-bottom: 8px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <input type="text" class="form-input" placeholder="Gyakorlat neve" value="${ex.name}" data-index="${index}" data-field="name" style="flex: 1; margin-right: 8px;">
+                <button class="small-icon-btn delete" data-index="${index}">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+            <div class="form-row">
+                <input type="number" class="form-input" placeholder="Súly (kg)" value="${ex.weight || ''}" data-index="${index}" data-field="weight" step="0.5">
+                <input type="number" class="form-input" placeholder="Ismétlés" value="${ex.reps || ''}" data-index="${index}" data-field="reps">
+            </div>
+        </div>
+    `).join('');
+    
+    // Update exercise data
+    planExercises.querySelectorAll('input').forEach(input => {
+        input.addEventListener('input', (e) => {
+            const index = parseInt(e.target.dataset.index);
+            const field = e.target.dataset.field;
+            const value = field === 'name' ? e.target.value : parseFloat(e.target.value) || 0;
+            
+            if (currentEditingPlan) {
+                currentEditingPlan.exercises[index][field] = value;
+            }
+        });
+    });
+    
+    // Delete exercise
+    planExercises.querySelectorAll('.small-icon-btn.delete').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const index = parseInt(btn.dataset.index);
+            if (currentEditingPlan) {
+                currentEditingPlan.exercises.splice(index, 1);
+                renderPlanExercises(currentEditingPlan.exercises);
+            }
+        });
+    });
+};
+
+const startPlan = (index) => {
+    activePlan = workoutPlans[index];
+    activeWorkoutData = activePlan.exercises.map(ex => ({
+        ...ex,
+        completed: false,
+        actualWeight: ex.weight || 0,
+        actualReps: ex.reps || 0
+    }));
+    
+    activePlanName.textContent = activePlan.name;
+    renderActiveWorkout();
+    
+    // Switch to active tab
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.workout-view').forEach(v => v.classList.remove('active'));
+    document.querySelector('[data-tab="active"]').classList.add('active');
+    document.getElementById('activeView').classList.add('active');
+};
+
+const renderActiveWorkout = () => {
+    if (!activePlan || activeWorkoutData.length === 0) {
+        activeExerciseList.innerHTML = `
+            <div class="empty-state">
+                <i class="bi bi-play-circle"></i>
+                <p>Indíts egy edzéstervet</p>
+            </div>
+        `;
+        return;
+    }
+    
+    activeExerciseList.innerHTML = activeWorkoutData.map((ex, index) => `
+        <div class="exercise-item ${ex.completed ? 'completed' : ''}">
+            <div class="exercise-info">
+                <div class="exercise-name">${ex.name}</div>
+                <div class="exercise-target">Cél: ${ex.weight} kg × ${ex.reps} ismétlés</div>
+            </div>
+            <div class="exercise-input-row">
+                <input type="number" class="mini-input" placeholder="kg" value="${ex.actualWeight}" data-index="${index}" data-field="weight" step="0.5" ${ex.completed ? 'disabled' : ''}>
+                <span style="color: #636366;">×</span>
+                <input type="number" class="mini-input" placeholder="rep" value="${ex.actualReps}" data-index="${index}" data-field="reps" ${ex.completed ? 'disabled' : ''}>
+                <button class="check-btn ${ex.completed ? 'checked' : ''}" data-index="${index}">
+                    <i class="bi bi-check-lg"></i>
+                </button>
+            </div>
+        </div>
+    `).join('');
+    
+    // Update inputs
+    activeExerciseList.querySelectorAll('.mini-input').forEach(input => {
+        input.addEventListener('input', (e) => {
+            const index = parseInt(e.target.dataset.index);
+            const field = e.target.dataset.field;
+            const value = parseFloat(e.target.value) || 0;
+            
+            if (field === 'weight') {
+                activeWorkoutData[index].actualWeight = value;
+            } else {
+                activeWorkoutData[index].actualReps = value;
+            }
+        });
+    });
+    
+    // Check buttons
+    activeExerciseList.querySelectorAll('.check-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const index = parseInt(btn.dataset.index);
+            const ex = activeWorkoutData[index];
+            
+            if (!ex.completed) {
+                ex.completed = true;
+                
+                // Add to today's workout
+                const now = new Date();
+                const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+                
+                todayWorkout.push({
+                    exercise: ex.name,
+                    weight: ex.actualWeight,
+                    reps: ex.actualReps,
+                    time,
+                    timestamp: now.getTime()
+                });
+                
+                saveWorkout();
+                renderActiveWorkout();
+            }
+        });
+    });
+};
+
+// Add plan
+addPlanBtn.addEventListener('click', () => {
+    currentEditingPlan = {
+        name: '',
+        exercises: []
+    };
+    planModalTitle.textContent = 'Új edzésterv';
+    planNameInput.value = '';
+    renderPlanExercises([]);
+    planModal.style.display = 'flex';
+});
+
+// Edit plan
+const editPlan = (index) => {
+    currentEditingPlan = JSON.parse(JSON.stringify(workoutPlans[index]));
+    currentEditingPlan.originalIndex = index;
+    planModalTitle.textContent = 'Terv szerkesztése';
+    planNameInput.value = currentEditingPlan.name;
+    renderPlanExercises(currentEditingPlan.exercises);
+    planModal.style.display = 'flex';
+};
+
+// Add exercise to plan
+addExerciseToPlan.addEventListener('click', () => {
+    if (!currentEditingPlan) return;
+    
+    currentEditingPlan.exercises.push({
+        name: '',
+        weight: 0,
+        reps: 0
+    });
+    
+    renderPlanExercises(currentEditingPlan.exercises);
+});
+
+// Save plan
+savePlanBtn.addEventListener('click', () => {
+    if (!currentEditingPlan) return;
+    
+    const name = planNameInput.value.trim();
+    if (!name) {
+        alert('Add meg a terv nevét!');
+        return;
+    }
+    
+    if (currentEditingPlan.exercises.length === 0) {
+        alert('Adj hozzá legalább egy gyakorlatot!');
+        return;
+    }
+    
+    currentEditingPlan.name = name;
+    
+    if (currentEditingPlan.originalIndex !== undefined) {
+        workoutPlans[currentEditingPlan.originalIndex] = {
+            name: currentEditingPlan.name,
+            exercises: currentEditingPlan.exercises
+        };
+    } else {
+        workoutPlans.push({
+            name: currentEditingPlan.name,
+            exercises: currentEditingPlan.exercises
+        });
+    }
+    
+    savePlans();
+    renderPlanList();
+    planModal.style.display = 'none';
+    currentEditingPlan = null;
+});
+
+// Close plan modal
+closePlanModal.addEventListener('click', () => {
+    planModal.style.display = 'none';
+    currentEditingPlan = null;
+});
+
+planModal.addEventListener('click', (e) => {
+    if (e.target === planModal) {
+        planModal.style.display = 'none';
+        currentEditingPlan = null;
+    }
+});
+
+// Quick add
 addSetBtn.addEventListener('click', () => {
     const exercise = exerciseName.value.trim();
     const weight = parseFloat(exerciseWeight.value) || 0;
@@ -733,7 +1052,6 @@ addSetBtn.addEventListener('click', () => {
     saveWorkout();
     renderWorkoutSets();
     
-    // Clear form
     exerciseName.value = '';
     exerciseWeight.value = '';
     exerciseReps.value = '';
@@ -788,3 +1106,6 @@ historyModal.addEventListener('click', (e) => {
         historyModal.style.display = 'none';
     }
 });
+
+// Load on start
+loadPlans();

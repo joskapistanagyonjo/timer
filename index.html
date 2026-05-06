@@ -129,35 +129,106 @@
             </div>
 
             <div class="workout-content" id="workoutContent">
-                <div class="workout-form">
-                    <div class="form-group">
-                        <label>Gyakorlat</label>
-                        <input type="text" id="exerciseName" placeholder="pl. Bench Press" class="form-input">
-                    </div>
-
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Súly (kg)</label>
-                            <input type="number" id="exerciseWeight" placeholder="0" class="form-input" step="0.5">
-                        </div>
-                        <div class="form-group">
-                            <label>Ismétlés</label>
-                            <input type="number" id="exerciseReps" placeholder="0" class="form-input">
-                        </div>
-                    </div>
-
-                    <button class="add-set-btn" id="addSetBtn">
-                        <i class="bi bi-plus-circle"></i> Sorozat hozzáadása
-                    </button>
+                <!-- Tabs -->
+                <div class="workout-tabs">
+                    <button class="tab-btn active" data-tab="plans">Tervek</button>
+                    <button class="tab-btn" data-tab="active">Aktív edzés</button>
+                    <button class="tab-btn" data-tab="quick">Gyors rögzítés</button>
                 </div>
 
-                <div class="current-workout" id="currentWorkout">
-                    <div class="section-title">Mai edzés</div>
-                    <div class="workout-sets" id="workoutSets">
-                        <div class="empty-state">
-                            <i class="bi bi-clipboard-check"></i>
-                            <p>Még nincs rögzített sorozat</p>
+                <!-- Plans View -->
+                <div class="workout-view active" id="plansView">
+                    <div class="plan-header">
+                        <div class="section-title">Edzéstervek</div>
+                        <div class="plan-actions">
+                            <button class="icon-btn" id="addPlanBtn">
+                                <i class="bi bi-plus-lg"></i>
+                            </button>
                         </div>
+                    </div>
+                    <div class="plan-list" id="planList">
+                        <div class="empty-state">
+                            <i class="bi bi-journal-text"></i>
+                            <p>Még nincs edzésterv</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Active Workout View -->
+                <div class="workout-view" id="activeView">
+                    <div class="plan-header">
+                        <div class="section-title" id="activePlanName">Válassz tervet</div>
+                    </div>
+                    <div class="exercise-list" id="activeExerciseList">
+                        <div class="empty-state">
+                            <i class="bi bi-play-circle"></i>
+                            <p>Indíts egy edzéstervet</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Add View -->
+                <div class="workout-view" id="quickView">
+                    <div class="workout-form">
+                        <div class="form-group">
+                            <label>Gyakorlat</label>
+                            <input type="text" id="exerciseName" placeholder="pl. Bench Press" class="form-input">
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Súly (kg)</label>
+                                <input type="number" id="exerciseWeight" placeholder="0" class="form-input" step="0.5">
+                            </div>
+                            <div class="form-group">
+                                <label>Ismétlés</label>
+                                <input type="number" id="exerciseReps" placeholder="0" class="form-input">
+                            </div>
+                        </div>
+
+                        <button class="add-set-btn" id="addSetBtn">
+                            <i class="bi bi-plus-circle"></i> Sorozat hozzáadása
+                        </button>
+                    </div>
+
+                    <div class="current-workout">
+                        <div class="section-title">Mai edzés</div>
+                        <div class="workout-sets" id="workoutSets">
+                            <div class="empty-state">
+                                <i class="bi bi-clipboard-check"></i>
+                                <p>Még nincs rögzített sorozat</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Create/Edit Plan Modal -->
+            <div class="modal" id="planModal" style="display: none;">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3 id="planModalTitle">Új edzésterv</h3>
+                        <button class="modal-close" id="closePlanModal">
+                            <i class="bi bi-x-lg"></i>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label>Terv neve</label>
+                            <input type="text" id="planName" placeholder="pl. Pull Day" class="form-input">
+                        </div>
+
+                        <div class="form-group">
+                            <label>Gyakorlatok</label>
+                            <div id="planExercises"></div>
+                            <button class="add-set-btn" id="addExerciseToPlan" style="margin-top: 12px;">
+                                <i class="bi bi-plus-circle"></i> Gyakorlat hozzáadása
+                            </button>
+                        </div>
+
+                        <button class="add-set-btn" id="savePlanBtn">
+                            <i class="bi bi-check-circle"></i> Mentés
+                        </button>
                     </div>
                 </div>
             </div>
